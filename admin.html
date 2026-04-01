@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NaMo Aarogya - Admin Dashboard</title>
+    <style>
+        :root {
+            --primary: #25D366; /* WhatsApp Green */
+            --bg-color: #f0f2f5;
+            --card-bg: #ffffff;
+            --text-dark: #1f2937;
+            --text-muted: #6b7280;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --border: #e5e7eb;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-dark);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Navbar */
+        nav {
+            background-color: var(--card-bg);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 1px 3px 0 rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        nav .logo {
+            font-size: 1.25rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        nav .logo span { color: var(--primary); }
+
+        .refresh-btn {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .refresh-btn:hover { background-color: #1ea952; }
+
+        /* Main Container */
+        .container {
+            max-width: 1000px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+
+        .header-stats {
+            margin-bottom: 2rem;
+            background: var(--card-bg);
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .stat-box { display: flex; flex-direction: column; }
+        .stat-value { font-size: 2rem; font-weight: 700; color: var(--primary); }
+        .stat-label { font-size: 0.875rem; color: var(--text-muted); font-weight: 500; text-transform: uppercase;}
+
+        /* Chat Logs List */
+        .logs-container { display: flex; flex-direction: column; gap: 1.5rem; }
+
+        .log-card {
+            background-color: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid var(--border);
+        }
+
+        .log-header {
+            background-color: #f9fafb;
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .log-user {
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .log-user svg { color: var(--text-muted); width: 20px; height: 20px;}
+        .log-time { font-size: 0.875rem; color: var(--text-muted); }
+
+        /* Chat Bubbles Layout */
+        .log-body {
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .bubble-wrapper { display: flex; flex-direction: column; max-width: 85%; }
+
+        .bubble-user { align-self: flex-start; }
+        .bubble-ai { align-self: flex-end; align-items: flex-end; }
+
+        .bubble-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-bottom: 0.25rem;
+            text-transform: uppercase;
+        }
+
+        .bubble {
+            padding: 1rem 1.25rem;
+            border-radius: 16px;
+            font-size: 0.95rem;
+            line-height: 1.5;
+            white-space: pre-wrap;
+        }
+
+        .user-text {
+            background-color: #f3f4f6;
+            color: #111827;
+            border-top-left-radius: 0;
+        }
+
+        .ai-text {
+            background-color: #dcf8c6;
+            color: #111827;
+            border-top-right-radius: 0;
+        }
+
+        .image-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            background: #e0e7ff;
+            color: #4338ca;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        /* Loading State */
+        .loading { text-align: center; padding: 3rem; color: var(--text-muted); }
+        .empty-state { text-align: center; padding: 3rem; color: var(--text-muted); }
+
+        @media (max-width: 600px) {
+            .bubble-wrapper { max-width: 95%; }
+            nav { padding: 1rem; }
+            .header-stats { display: flex; flex-direction: column; align-items: flex-start; }
+        }
+    </style>
+</head>
+<body>
+
+    <nav>
+        <div class="logo">
+            <svg xmlns="http://www.w3.org/-2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--primary)"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+            NaMo <span>Aarogya Dashboard</span>
+        </div>
+        <button class="refresh-btn" onclick="fetchLogs()">
+            <svg xmlns="http://www.w3.org/-2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+            Refresh
+        </button>
+    </nav>
+
+    <div class="container">
+        <div class="header-stats">
+            <div class="stat-box">
+                <span class="stat-value" id="totalInteractions">0</span>
+                <span class="stat-label">Total AI Interactions</span>
+            </div>
+            <div class="stat-box">
+                <span class="stat-value" id="lastUpdated">-</span>
+                <span class="stat-label">Last Updated</span>
+            </div>
+        </div>
+
+        <div id="logsContainer" class="logs-container">
+            <div class="loading">Fetching logs securely from server...</div>
+        </div>
+    </div>
+
+    <script>
+        function formatTime(isoString) {
+            const date = new Date(isoString);
+            return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        }
+
+        // WhatsApp markdown parser for basic bold/italics
+        function parseWhatsAppFormatting(text) {
+            if (!text) return "";
+            // Replace *bold* with <strong>
+            let formatted = text.replace(/\*([^\*]+)\*/g, '<strong>$1</strong>');
+            // Replace _italic_ with <em>
+            formatted = formatted.replace(/_([^_]+)_/g, '<em>$1</em>');
+            // Bullet points
+            formatted = formatted.replace(/^[\-•]\s(.*)$/gm, '<li>$1</li>');
+            return formatted;
+        }
+
+        async function fetchLogs() {
+            const container = document.getElementById('logsContainer');
+            
+            try {
+                const response = await fetch('/api/history');
+                const logs = await response.json();
+
+                document.getElementById('totalInteractions').innerText = logs.length;
+                document.getElementById('lastUpdated').innerText = new Date().toLocaleTimeString();
+
+                if (logs.length === 0) {
+                    container.innerHTML = `<div class="empty-state">No interactions found yet. Everything will appear here in real-time.</div>`;
+                    return;
+                }
+
+                container.innerHTML = logs.map(log => `
+                    <div class="log-card">
+                        <div class="log-header">
+                            <div class="log-user">
+                                <svg xmlns="http://www.w3.org/-2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                                +${log.user}
+                            </div>
+                            <div class="log-time">${formatTime(log.timestamp)}</div>
+                        </div>
+                        <div class="log-body">
+                            <!-- User Message -->
+                            <div class="bubble-wrapper bubble-user">
+                                <div class="bubble-label">User Question</div>
+                                <div class="bubble user-text">
+                                    ${log.mediaUrl ? (log.mediaUrl.endsWith('.pdf') ? `<a href="${log.mediaUrl}" target="_blank" class="image-badge" style="text-decoration:none;">📄 View Attached PDF Report</a><br/>` : `<a href="${log.mediaUrl}" target="_blank"><img src="${log.mediaUrl}" style="max-width: 100%; border-radius: 8px; margin-bottom: 0.5rem;" alt="Attached Medical Image" /></a><br/>`) : (log.hasImage ? `<span class="image-badge">Contains Image</span><br/>` : '')}
+                                    ${log.query || '[No Text provided]'}
+                                </div>
+                            </div>
+                            <!-- AI Response -->
+                            <div class="bubble-wrapper bubble-ai">
+                                <div class="bubble-label" style="align-self: flex-end;">AI Response</div>
+                                <div class="bubble ai-text">${parseWhatsAppFormatting(log.response)}</div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+
+            } catch (err) {
+                console.error("Fetch error:", err);
+                container.innerHTML = `<div class="empty-state" style="color: #ef4444;">Failed to load chat history. Ensure server is running.</div>`;
+            }
+        }
+
+        // Auto load and poll every 10 seconds
+        fetchLogs();
+        setInterval(fetchLogs, 10000);
+    </script>
+</body>
+</html>
