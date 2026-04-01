@@ -167,12 +167,18 @@ async function initWhatsApp() {
 
     const activeTasks = new Set(); // Per-user lock (optional with global queue, but good for UX)
 
-    sock.ev.on("messages.upsert", async (m) => {
+    sock.ev.on("messages.upsert", async ({ messages, type }) => {
         try {
-            const msg = m.messages[0];
+            if (type !== 'notify') return; // Only process new incoming messages
+
+            const msg = messages[0];
             if (!msg.message || msg.key.fromMe) return;
 
             const remoteJid = msg.key.remoteJid;
+            
+            // Filter out Status updates and protocol messages
+            if (remoteJid === 'status@broadcast') return;
+            if (msg.message.protocolMessage) return;
             
             // Extract textual content
             let userText = msg.message.conversation || 
