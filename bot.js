@@ -117,7 +117,55 @@ async function initWhatsApp() {
 
     sock.ev.on("creds.update", saveCreds);
 
-    const activeTasks = new Set();
+    // --- Global Queue System ---
+    const taskQueue = [];
+    let isProcessing = false;
+
+    async function processQueue() {
+        if (isProcessing || taskQueue.length === 0) return;
+        isProcessing = true;
+
+        while (taskQueue.length > 0) {
+            const task = taskQueue.shift();
+            try {
+                await handleTask(task);
+            } catch (err) {
+                console.error("[Queue] Task failed:", err);
+            }
+        }
+
+        isProcessing = false;
+    }
+
+    async function handleTask({ msg, remoteJid, userText, base64Image, mimeType, mediaUrl }) {
+        try {
+            await sock.sendPresenceUpdate('composing', remoteJid);
+            console.log(`[Queue] Processing for ${remoteJid}...`);
+            
+            const userHistory = getUserHistory(remoteJid, 5);
+            let aiResponseText = await generateHealthResponse(userText, base64Image, mimeType, userHistory);
+
+            // Add clear Bot prefix
+            aiResponseText = "🤖 *NaMo Aarogya (AI Bot)*\n──────────────\n" + aiResponseText;
+
+            // Save to DB
+            logInteraction(remoteJid, userText, aiResponseText, !!base64Image, mediaUrl);
+
+            await sock.sendMessage(remoteJid, { text: aiResponseText }, { quoted: msg });
+            await sock.sendPresenceUpdate('available', remoteJid);
+            
+            // Per-task delay to avoid being flagged as spam by WhatsApp
+            await new Promise(resolve => setTimeout(resolve, 2000)); 
+
+        } catch (err) {
+            console.error("[Queue] handleTask Error:", err);
+            try {
+                await sock.sendMessage(remoteJid, { text: "⚠️ An internal error occurred while processing your health query." });
+            } catch(e) {}
+        }
+    }
+
+    const activeTasks = new Set(); // Per-user lock (optional with global queue, but good for UX)
 
     sock.ev.on("messages.upsert", async (m) => {
         try {
@@ -132,20 +180,17 @@ async function initWhatsApp() {
                            msg.message.imageMessage?.caption || 
                            msg.message.documentMessage?.caption || "";
             
-            // Extract media if present (Image or Document)
+            // Extract media if present
             let base64Image = null;
             let mimeType = null;
             let mediaUrl = null;
             
             const imageMsg = msg.message.imageMessage;
             const docMsg = msg.message.documentMessage;
-            
             const attachedMedia = imageMsg || docMsg;
 
             if (attachedMedia) {
                 mimeType = attachedMedia.mimetype || "";
-                
-                // Allow only Images or PDF
                 if (mimeType.includes('image/') || mimeType.includes('application/pdf')) {
                     const msgType = imageMsg ? 'image' : 'document';
                     const stream = await downloadContentFromMessage(attachedMedia, msgType);
@@ -153,11 +198,8 @@ async function initWhatsApp() {
                     for await (const chunk of stream) {
                         buffer = Buffer.concat([buffer, chunk]);
                     }
-                    
-                    // We need base64 for Gemini directly
                     base64Image = buffer.toString('base64');
                     
-                    // Save to local disk for Admin panel to view
                     const ext = mimeType.includes('pdf') ? 'pdf' : (mimeType.split('/')[1] || 'jpg');
                     const fileName = `media_${Date.now()}.${ext}`;
                     fs.writeFileSync(path.join(UPLOADS_DIR, fileName), buffer);
@@ -165,43 +207,23 @@ async function initWhatsApp() {
                 }
             }
 
-            // Must have text or supported media
             if (!userText && !base64Image) return;
 
-            if (activeTasks.has(remoteJid)) {
-                await sock.sendMessage(remoteJid, { text: "⏳ I am already analyzing your previous query. Please wait." });
+            // Optional: Multi-message block per user
+            if (taskQueue.some(t => t.remoteJid === remoteJid)) {
+                await sock.sendMessage(remoteJid, { text: "⏳ I have received your message. You are in the queue. Please wait." });
                 return;
             }
 
-            activeTasks.add(remoteJid);
-            await sock.sendPresenceUpdate('composing', remoteJid);
-
-            console.log(`[User Request] from ${remoteJid}: Text: ${userText.substring(0,30)} | Media: ${!!base64Image}`);
+            // Push to Global Queue
+            console.log(`[Queue] Added request from ${remoteJid}`);
+            taskQueue.push({ msg, remoteJid, userText, base64Image, mimeType, mediaUrl });
             
-            const userHistory = getUserHistory(remoteJid, 5);
-            let aiResponseText = await generateHealthResponse(userText, base64Image, mimeType, userHistory);
-
-            // Add clear Bot prefix so people know it's not a human
-            aiResponseText = "🤖 *NaMo Aarogya (AI Bot)*\n──────────────\n" + aiResponseText;
-
-            // Save to DB
-            logInteraction(remoteJid, userText, aiResponseText, !!base64Image, mediaUrl);
-
-            await sock.sendMessage(remoteJid, { text: aiResponseText }, { quoted: msg });
-            
-            await sock.sendPresenceUpdate('available', remoteJid);
-            activeTasks.delete(remoteJid);
+            // Trigger processor
+            processQueue();
 
         } catch (err) {
-            console.error("Message processing error:", err);
-            const msg = m.messages[0];
-            if (msg && msg.key.remoteJid) {
-                activeTasks.delete(msg.key.remoteJid);
-                // Try sending fallback error
-                try {
-                    await sock.sendMessage(msg.key.remoteJid, { text: "⚠️ Expected text/image format, but an internal processing error occurred." });
-                } catch(e) {}
-            }
+            console.error("Upsert handler error:", err);
         }
     });
 }
