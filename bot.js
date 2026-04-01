@@ -89,7 +89,7 @@ app.post('/api/broadcast', async (req, res) => {
                 // If it's a legacy entry without @, assume it's a person/group based on length
                 jid = userId.length > 15 ? `${userId}@g.us` : `${userId}@s.whatsapp.net`;
             }
-            await globalSock.sendMessage(jid, { text: `📢 *UPDATE* 📢\n──────────────\n${message}` });
+            await globalSock.sendMessage(jid, { text: `⚕️ *NaMo Aarogya*\n──────────────\n${message}` });
             // Random delay 3-8 seconds
             const delay = Math.floor(Math.random() * 5000) + 3000;
             await new Promise(r => setTimeout(r, delay));
@@ -227,7 +227,7 @@ async function initWhatsApp() {
                         const medicine = userText.replace(timeMatch[0], '').replace(/[,]/g, '').trim() || "Medicine";
                         
                         addReminder(remoteJid, finalTime, medicine);
-                        await sock.sendMessage(remoteJid, { text: `✅ *Reminder Set!*\n\nBhai, main aapko rozana *${finalTime}* (Standard Time) baje *${medicine}* ki dawai yaad dilaunga. Swasth rahein! ❤️` });
+                        await sock.sendMessage(remoteJid, { text: `✅ *Reminder Set!*\n\nNamaste, main aapko niyamit roop se *${finalTime}* (Standard Time) baje *${medicine}* ki dawai lene ke liye suchit karunga. Swasth rahein! 🙏✨` });
                         return;
                     } else {
                         await sock.sendMessage(remoteJid, { text: "⚠️ Format samajh nahi aaya! Please sahi se likhein.\n\n*Example:* Calpol 18:30\n*Ya phir:* Paracetamol 3:00 pm" });
@@ -241,12 +241,12 @@ async function initWhatsApp() {
             const lowerText = userText.toLowerCase();
             if (lowerText.includes("hospital") || lowerText.includes("nearby") || lowerText.includes("aas paas") || lowerText.includes("address")) {
                 userState[remoteJid] = { type: 'awaiting_address' };
-                await sock.sendMessage(remoteJid, { text: "🏥 *Nearby Hospital Finder*\n\nBhai, aap kahan se ho? Apna poora *address* ya *area ka naam* batao taaki main aas-paas ke hospitals dhoondh sakun." });
+                await sock.sendMessage(remoteJid, { text: "🏥 *Nearby Hospital Finder*\n\nKripya apne kshetr (area) ka naam ya poora pata (address) batayein taaki main nikat-tam (nearby) hospitals khoj sakun." });
                 return;
             }
             if (lowerText.includes("remind") || lowerText.includes("remain") || lowerText.includes("yad dila") || lowerText.includes("yaad dila")) {
                 userState[remoteJid] = { type: 'awaiting_reminder' };
-                await sock.sendMessage(remoteJid, { text: "🔔 *Medicine Reminder*\n\nTheek hai bhai, kaunsi dawai (medicine name) aur kitne baje (format: HH:mm) yaad dilana hai?\n\n*Format:* [Medicine] [Time]\n*Example:* Calpol 18:30" });
+                await sock.sendMessage(remoteJid, { text: "🔔 *Medicine Reminder*\n\nJi han, kripya dawai ka naam (medicine name) aur samay (time, e.g. 18:30) batayein jiske liye aapko reminder set karna hai.\n\n*Format:* [Medicine] [Time]\n*Example:* Calpol 18:30" });
                 return;
             }
 

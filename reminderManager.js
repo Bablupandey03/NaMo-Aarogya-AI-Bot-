@@ -13,11 +13,18 @@ if (!fs.existsSync(path.join(__dirname, 'data'))) {
  * Loads all reminders
  */
 function loadReminders() {
-    if (!fs.existsSync(REMINDERS_FILE)) {
-        fs.writeFileSync(REMINDERS_FILE, JSON.stringify([]));
+    try {
+        if (!fs.existsSync(REMINDERS_FILE)) {
+            fs.writeFileSync(REMINDERS_FILE, JSON.stringify([]));
+            return [];
+        }
+        const data = fs.readFileSync(REMINDERS_FILE, 'utf8').trim();
+        if (!data) return []; // Handle empty file
+        return JSON.parse(data);
+    } catch (err) {
+        console.error("[ReminderManager] JSON Parse Error, resetting to empty:", err.message);
+        return [];
     }
-    const data = fs.readFileSync(REMINDERS_FILE, 'utf8');
-    return JSON.parse(data);
 }
 
 /**
@@ -53,9 +60,9 @@ function startReminderService(sock) {
         
         for (const r of dueReminders) {
             try {
-                const message = `🔔 *ROZANA REMINDER* 💊\n──────────────\nBhai, aapki dawai ka waqt ho gaya hai!\n\n💊 *Medicine:* ${r.medicine}\n⏰ *Time:* ${r.time}\n\nKripya ise samay par lein. Swasth rahein! ❤️`;
+                const message = `⚕️ *NaMo Med Reminder*\n──────────────\n💊 *Medicine:* ${r.medicine}\n⏰ *Time:* ${r.time}\n\n🙏 Stay healthy.`;
                 await sock.sendMessage(r.jid, { text: message });
-                console.log(`[Reminders] Sent to ${r.jid} for ${r.medicine}`);
+                console.log(`[Reminders] Sent further simplified reminder to ${r.jid} for ${r.medicine}`);
             } catch (err) {
                 console.error(`[Reminders] Failed to send to ${r.jid}:`, err.message);
             }
