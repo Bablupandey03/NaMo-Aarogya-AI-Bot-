@@ -34,7 +34,7 @@ function logInteraction(jid, userMessage, aiResponse, hasImage = false, mediaUrl
         const newEntry = {
             id: Date.now(),
             timestamp: new Date().toISOString(),
-            user: jid.split('@')[0], 
+            user: jid,
             query: userMessage || (hasImage ? "[Sent an Image]" : "[Unknown]"),
             response: aiResponse,
             hasImage: hasImage,

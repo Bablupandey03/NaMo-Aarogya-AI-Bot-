@@ -213,6 +213,20 @@
             </div>
         </div>
 
+        <!-- Broadcast Section -->
+        <div class="header-stats" style="flex-direction: column; align-items: stretch; gap: 1rem;">
+            <h3 style="color: var(--text-dark); margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 17a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9.5C2 7 4 5 6.5 5H18c2.2 0 4 1.8 4 4v8Z"/><path d="M15 9l-6 6"/><path d="M9 9l6 6"/></svg>
+                Admin Broadcast Tool
+            </h3>
+            <p style="font-size: 0.875rem; color: var(--text-muted);">Send a message to all users who have interacted with the bot. A random delay of 3-8 seconds is applied per message to avoid ban risk.</p>
+            <textarea id="broadcastMsg" placeholder="Type your broadcast message here (e.g. Health Tips, Updates)..." style="width: 100%; min-height: 80px; padding: 10px; border-radius: 8px; border: 1px solid var(--border); font-family: inherit; font-size: 0.95rem;"></textarea>
+            <button id="broadcastBtn" class="refresh-btn" style="align-self: flex-end;" onclick="sendBroadcast()">
+                🚀 Start Broadcast
+            </button>
+            <div id="broadcastStatus" style="font-size: 0.875rem; font-weight: 500; text-align: right; color: var(--primary);"></div>
+        </div>
+
         <div id="logsContainer" class="logs-container">
             <div class="loading">Fetching logs securely from server...</div>
         </div>
@@ -234,6 +248,38 @@
             // Bullet points
             formatted = formatted.replace(/^[\-•]\s(.*)$/gm, '<li>$1</li>');
             return formatted;
+        }
+
+        async function sendBroadcast() {
+            const msgInput = document.getElementById('broadcastMsg');
+            const statusDiv = document.getElementById('broadcastStatus');
+            const btn = document.getElementById('broadcastBtn');
+            const message = msgInput.value.trim();
+
+            if (!message) return alert("Please enter a message!");
+            if (!confirm("Are you sure you want to broadcast this to ALL users? Check for spelling/privacy!")) return;
+
+            btn.disabled = true;
+            statusDiv.innerText = "⏳ Initializing broadcast...";
+
+            try {
+                const res = await fetch('/api/broadcast', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    statusDiv.innerText = "✅ Broadcast started! Bot will process this in background.";
+                    msgInput.value = "";
+                } else {
+                    statusDiv.innerText = "❌ Error: " + (data.error || "Failed context");
+                }
+            } catch (e) {
+                statusDiv.innerText = "❌ Failed to reach server.";
+            } finally {
+                setTimeout(() => { btn.disabled = false; }, 5000);
+            }
         }
 
         async function fetchLogs() {

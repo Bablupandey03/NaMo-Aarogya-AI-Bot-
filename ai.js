@@ -6,13 +6,18 @@ const GEMINI_API_KEY_BACKUP = process.env.GEMINI_API_KEY_BACKUP;
 const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY;
 
 /**
- * Sends a request to AI models (DeepSeek for text, Gemini for images/backup)
+ * Sends a request to AI models (DeepSeek for text, Gemini for Multi-modal / Backup)
  */
-async function generateHealthResponse(userText, base64Image = null, mimeType = null, userHistory = []) {
-    // 1. If an image/PDF is provided, use Gemini (DeepSeek-V3 is text only)
-    if (base64Image && mimeType) {
-        console.log("[AI] Using Gemini for image analysis...");
-        return await handleGeminiWithFallback(userText, base64Image, mimeType, userHistory);
+async function generateHealthResponse(userText, base64Data = null, mimeType = null, userHistory = []) {
+    // 1. If it's Multi-modal (Image, Audio, PDF), use Gemini (DeepSeek-V3 is text only)
+    if (base64Data && mimeType) {
+        let mediaType = "unknown";
+        if (mimeType.includes('image')) mediaType = "Image";
+        else if (mimeType.includes('pdf')) mediaType = "PDF Report";
+        else if (mimeType.includes('audio')) mediaType = "Voice Message";
+
+        console.log(`[AI] Using Gemini for ${mediaType} analysis...`);
+        return await handleGeminiWithFallback(userText, base64Data, mimeType, userHistory);
     }
 
     // 2. If it's pure text, try DeepSeek first (OpenAI-compatible)
@@ -26,13 +31,13 @@ async function generateHealthResponse(userText, base64Image = null, mimeType = n
     }
 
     // 3. Fallback to Gemini if DeepSeek fails or isn't configured
-    return await handleGeminiWithFallback(userText, base64Image, mimeType, userHistory);
+    return await handleGeminiWithFallback(userText, base64Data, mimeType, userHistory);
 }
 
 /**
  * Handles Gemini calls with primary and backup keys
  */
-async function handleGeminiWithFallback(userText, base64Image, mimeType, userHistory) {
+async function handleGeminiWithFallback(userText, base64Data, mimeType, userHistory) {
     const keys = [GEMINI_API_KEY, GEMINI_API_KEY_BACKUP].filter(key => !!key);
     
     if (keys.length === 0) {
@@ -42,7 +47,7 @@ async function handleGeminiWithFallback(userText, base64Image, mimeType, userHis
     for (let i = 0; i < keys.length; i++) {
         const currentKey = keys[i];
         try {
-            return await callGeminiAPI(currentKey, userText, base64Image, mimeType, userHistory);
+            return await callGeminiAPI(currentKey, userText, base64Data, mimeType, userHistory);
         } catch (err) {
             console.error(`[AI] Gemini ${i === 0 ? 'Primary' : 'Backup'} Failed:`, err.message);
             if (i < keys.length - 1) continue;
@@ -62,7 +67,6 @@ async function callDeepSeekAPI(apiKey, userText, userHistory) {
         { role: "system", content: healthPrompt }
     ];
 
-    // Add history - cleanup as we did before
     if (userHistory && userHistory.length > 0) {
         userHistory.forEach(h => {
             let cleanResponse = h.response.replace(/🤖 \*NaMo Aarogya \(AI Bot\)\*\n──────────────\n/g, '');
@@ -99,8 +103,8 @@ async function callDeepSeekAPI(apiKey, userText, userHistory) {
 /**
  * Core Gemini API caller
  */
-async function callGeminiAPI(apiKey, userText, base64Image, mimeType, userHistory) {
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`;
+async function callGeminiAPI(apiKey, userText, base64Data, mimeType, userHistory) {
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent`;
 
     let historyContext = "";
     if (userHistory && userHistory.length > 0) {
@@ -115,14 +119,15 @@ async function callGeminiAPI(apiKey, userText, base64Image, mimeType, userHistor
 
     let parts = [
         { text: healthPrompt },
-        { text: `\n\n${historyContext}Current User Query: ${userText || "Check this medical image"}` }
+        { text: `\n\n${historyContext}Current User Query: ${userText || "Analyze the attached medical data (Audio/PDF/Image)"}` }
     ];
 
-    if (base64Image && mimeType) {
+    if (base64Data && mimeType) {
+        // Handle PDF/Audio/Image natively
         parts.push({
             inlineData: {
                 mimeType: mimeType,
-                data: base64Image
+                data: base64Data
             }
         });
     }
@@ -139,7 +144,10 @@ async function callGeminiAPI(apiKey, userText, base64Image, mimeType, userHistor
 
     const response = await fetch(endpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+            'Content-Type': 'application/json',
+            'X-goog-api-key': apiKey
+        },
         body: JSON.stringify(payload)
     });
 
@@ -158,24 +166,13 @@ async function callGeminiAPI(apiKey, userText, base64Image, mimeType, userHistor
  * Shared formatting cleanup
  */
 function cleanResponseFormatting(text) {
-    // 1. Convert Markdown headers to WhatsApp bold
+    // Formatting logic as implemented before
     text = text.replace(/^(#+)\s+(.*?)$/gm, '*$2*'); 
-    
-    // 2. Convert double asterisks to single
     text = text.replace(/\*\*(.*?)\*\*/g, '*$1*');
-    
-    // 3. Fix Bold Spacing (Ensure stars don't jam against words)
-    // Add space before '*' if preceded by text: "word*bold*" -> "word *bold*"
     text = text.replace(/([a-zA-Z0-9])(\*)([a-zA-Z0-9])/g, '$1 $2$3');
-    // Add space after '*' if followed by text: "*bold*word" -> "*bold* word"
     text = text.replace(/([a-zA-Z0-9]\*)([a-zA-Z0-9])/g, '$1 $2');
-
-    // 4. Convert bullet points
     text = text.replace(/^[\-\*]\s/gm, '• ');
-    
-    // 5. Cleanup headers
     text = text.replace(/🤖 \*NaMo Aarogya \(AI Bot\)\*\n──────────────\n/g, '').trim();
-    
     return text;
 }
 
