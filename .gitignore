@@ -19,6 +19,8 @@ data/reminders.json
 
 # Maintenance & Maintenance Scripts
 fix_history.js
+verify_fixes.js
+QNA.md
 
 # Test & Scratch Files
 test_*.js
